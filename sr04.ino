@@ -10,7 +10,7 @@ volatile uint32* CoreDebug_DEMCR = (uint32*)(0xE000EDF0UL+12);
 #define CoreDebug_DEMCR_TRCENA_Msk (1u<<24)
 #define CYCCNT *DWT_CYCCNT
 
-#define ECHO_GPIO_BASE GPIOB_BASE
+#define ECHO_GPIO_BASE GPIOB_BASE // PB4
 #define ECHO_BIT  4    // PB4
 const uint32 echoPin = PB4;
 const uint32 triggerPin = PB3;
@@ -21,12 +21,6 @@ void setup() {
   pinMode(triggerPin,OUTPUT);
   pinMode(echoPin,INPUT);
   Serial.begin(9600);
-}
-
-void pulse() {
-  digitalWrite(triggerPin,1);
-  delayMicroseconds(10);
-  digitalWrite(triggerPin,0);
 }
 
 int32 measureEcho(int samples) {
