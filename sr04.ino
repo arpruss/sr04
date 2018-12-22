@@ -1,7 +1,23 @@
-const uint32 triggerPin = PB3;
+#define BITBAND_PERIPHERAL_BASE  0x42000000u
+#define PERIPHERAL_START         0x40000000u
+#define BITBAND_PERIPHERAL(address, bit) *( (volatile uint32*)( BITBAND_PERIPHERAL_BASE + ((uint32)(address)-PERIPHERAL_START) * 32u + (uint32)(bit)*4u) )
+#define GPIO_READ(gpioBase, bit) BITBAND_PERIPHERAL((uint32)&(gpioBase->IDR), (bit))
+
+static const uint32_t cyclesPerUS = (F_CPU / 1000000ul);
+volatile uint32* DWT_CTRL = (uint32*)(0xE0001000UL);                           
+volatile uint32* DWT_CYCCNT = (uint32*)(0xE0001000UL+4);    
+volatile uint32* CoreDebug_DEMCR = (uint32*)(0xE000EDF0UL+12);                       
+#define CoreDebug_DEMCR_TRCENA_Msk (1u<<24)
+#define CYCCNT *DWT_CYCCNT
+
+#define ECHO_GPIO_BASE GPIOB_BASE
+#define ECHO_BIT  4    // PB4
 const uint32 echoPin = PB4;
+const uint32 triggerPin = PB3;
 
 void setup() {
+  *CoreDebug_DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  *DWT_CTRL = 1;
   pinMode(triggerPin,OUTPUT);
   pinMode(echoPin,INPUT);
   Serial.begin(9600);
@@ -20,27 +36,22 @@ int32 measureEcho(int samples) {
     delayMicroseconds(10);
     digitalWrite(triggerPin,0);
     
-    uint32 t0 = micros();
-    uint32 t;
+    CYCCNT = 0;
     do {
-      t = micros()-t0;
-      if (t > 100000) {
+      if (CYCCNT >= cyclesPerUS * 100000)
         return -1;
-      }
     }
-    while (! digitalRead(echoPin));
-    t0 = micros();
+    while (! GPIO_READ(ECHO_GPIO_BASE, ECHO_BIT));
+    CYCCNT = 0;
     do {
-      t = micros()-t0;
-      if (t > 100000) {
+      if (CYCCNT >= cyclesPerUS * 100000)
         return -1;
-      }
     }
-    while (digitalRead(echoPin));
-    total += t;
+    while (GPIO_READ(ECHO_GPIO_BASE, ECHO_BIT));
+    total += CYCCNT;
   }
 
-  return total / samples;
+  return total / samples / cyclesPerUS;
 }
 
 void loop() {
